@@ -65,6 +65,8 @@ public final class TetrisSwingClient {
     private final JPanel rootPanel;
     private final BoardPanel boardPanel;
     private final JLabel scoreLabel;
+    private final JLabel recordLabel;
+    private final JLabel gamesLabel;
     private final JLabel placedLabel;
     private final JLabel holesLabel;
     private final JLabel gameOverLabel;
@@ -84,6 +86,8 @@ public final class TetrisSwingClient {
         this.rootPanel = new JPanel(cardLayout);
         this.boardPanel = new BoardPanel();
         this.scoreLabel = createInfoLabel();
+        this.recordLabel = createInfoLabel();
+        this.gamesLabel = createInfoLabel();
         this.placedLabel = createInfoLabel();
         this.holesLabel = createInfoLabel();
         this.gameOverLabel = createInfoLabel();
@@ -297,6 +301,10 @@ public final class TetrisSwingClient {
         stats.setOpaque(false);
         stats.setLayout(new BoxLayout(stats, BoxLayout.Y_AXIS));
         stats.add(scoreLabel);
+        stats.add(Box.createVerticalStrut(6));
+        stats.add(recordLabel);
+        stats.add(Box.createVerticalStrut(6));
+        stats.add(gamesLabel);
         stats.add(Box.createVerticalStrut(6));
         stats.add(placedLabel);
         stats.add(Box.createVerticalStrut(6));
@@ -564,6 +572,8 @@ public final class TetrisSwingClient {
 
         boardPanel.setSnapshot(snapshot);
         scoreLabel.setText("Очки: " + snapshot.score() + " | Занято: " + snapshot.occupiedCells());
+        recordLabel.setText("Рекорд: " + snapshot.bestScore());
+        gamesLabel.setText("Игр сыграно: " + snapshot.gamesPlayed());
         placedLabel.setText("Размещено фигур: " + snapshot.placedFigures());
         holesLabel.setText("Пустоты: " + snapshot.holes());
         gameOverLabel.setText(snapshot.gameOver() ? "КОНЕЦ ИГРЫ" : " ");

@@ -4,7 +4,10 @@ import ru.danil.tetris.rmi.common.ActiveFigure;
 import ru.danil.tetris.rmi.common.FigureType;
 import ru.danil.tetris.rmi.common.GameService;
 import ru.danil.tetris.rmi.common.GameSnapshot;
+import ru.danil.tetris.rmi.server.storage.GameStatistics;
+import ru.danil.tetris.rmi.server.storage.GameStatisticsStore;
 
+import java.nio.file.Path;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
@@ -18,15 +21,18 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
     private static final int MAX_HEIGHT = 25;
 
     private final Random random;
+    private final GameStatisticsStore statisticsStore;
     private boolean[][] board;
     private ActiveFigure activeFigure;
     private boolean gameOver;
+    private boolean resultSaved;
     private int placedFigures;
     private String statusMessage;
 
     public GameServiceImpl() throws RemoteException {
         super();
         random = new Random();
+        statisticsStore = new GameStatisticsStore(Path.of("data", "tetris.db"));
         initialize(DEFAULT_WIDTH, DEFAULT_HEIGHT);
     }
 
@@ -166,8 +172,7 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
 
     @Override
     public synchronized GameSnapshot finishGame() {
-        gameOver = true;
-        statusMessage = "Игра завершена по команде клиента.";
+        finishCurrentGame("Игра завершена по команде клиента.");
         return buildSnapshot();
     }
 
@@ -200,6 +205,7 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
         board = new boolean[height][width];
         placedFigures = 0;
         gameOver = false;
+        resultSaved = false;
         statusMessage = "Новая игра началась.";
         spawnNextFigure();
     }
@@ -212,8 +218,7 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
         activeFigure = new ActiveFigure(type, 0, startX, 0);
 
         if (!canPlace(activeFigure)) {
-            gameOver = true;
-            statusMessage = "Новая фигура не помещается. Игра завершена.";
+            finishCurrentGame("Новая фигура не помещается. Игра завершена.");
         }
     }
 
@@ -259,14 +264,22 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
 
         placedFigures++;
         if (isBoardFull()) {
-            gameOver = true;
-            statusMessage = "Поле заполнено полностью. Игра завершена.";
+            finishCurrentGame("Поле заполнено полностью. Игра завершена.");
             return;
         }
 
         spawnNextFigure();
         if (!gameOver) {
             statusMessage = "Фигура зафиксирована. Сервер выдал следующую.";
+        }
+    }
+
+    private void finishCurrentGame(String message) {
+        gameOver = true;
+        statusMessage = message;
+        if (!resultSaved) {
+            statisticsStore.saveResult(calculateScore());
+            resultSaved = true;
         }
     }
 
@@ -339,6 +352,7 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
     }
 
     private GameSnapshot buildSnapshot() {
+        GameStatistics statistics = statisticsStore.loadStatistics();
         return new GameSnapshot(
             board[0].length,
             board.length,
@@ -349,6 +363,8 @@ public class GameServiceImpl extends UnicastRemoteObject implements GameService 
             countOccupiedCells(),
             countHoles(),
             calculateScore(),
+            statistics.bestScore(),
+            statistics.gamesPlayed(),
             statusMessage
         );
     }
