@@ -13,8 +13,10 @@ public record GameSnapshot(
     int occupiedCells,
     int holes,
     int score,
+    String playerNickname,
     int bestScore,
     int gamesPlayed,
+    List<PlayerScore> topPlayers,
     String statusMessage
 ) implements Serializable {
 }

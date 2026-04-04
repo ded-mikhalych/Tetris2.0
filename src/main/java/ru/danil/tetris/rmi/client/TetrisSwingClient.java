@@ -46,6 +46,8 @@ public final class TetrisSwingClient {
     private static final int MIN_HEIGHT = 6;
     private static final int MAX_WIDTH = 25;
     private static final int MAX_HEIGHT = 25;
+    private static final int MAX_NICKNAME_LENGTH = 20;
+    private static final int GAME_SIDE_PANEL_WIDTH = 280;
 
     private static final Color BACKGROUND = new Color(5, 14, 8);
     private static final Color PANEL_BG = new Color(8, 24, 12);
@@ -67,16 +69,23 @@ public final class TetrisSwingClient {
     private final JLabel scoreLabel;
     private final JLabel recordLabel;
     private final JLabel gamesLabel;
+    private final JLabel menuPlayerLabel;
+    private final JLabel menuRecordLabel;
+    private final JLabel menuGamesLabel;
+    private final JLabel menuTopLabel;
     private final JLabel placedLabel;
     private final JLabel holesLabel;
     private final JLabel gameOverLabel;
     private final JLabel settingsValidationLabel;
+    private final JTextField nicknameField;
     private final JTextField widthField;
     private final JTextField heightField;
     private final JTextArea helpArea;
+    private final JTextArea leaderboardArea;
     private final Timer fallTimer;
     private JButton saveSettingsButton;
 
+    private String sessionId;
     private GameSnapshot snapshot;
 
     private TetrisSwingClient(GameService service) {
@@ -88,13 +97,19 @@ public final class TetrisSwingClient {
         this.scoreLabel = createInfoLabel();
         this.recordLabel = createInfoLabel();
         this.gamesLabel = createInfoLabel();
+        this.menuPlayerLabel = createInfoLabel();
+        this.menuRecordLabel = createInfoLabel();
+        this.menuGamesLabel = createInfoLabel();
+        this.menuTopLabel = createInfoLabel();
         this.placedLabel = createInfoLabel();
         this.holesLabel = createInfoLabel();
         this.gameOverLabel = createInfoLabel();
         this.settingsValidationLabel = createInfoLabel();
+        this.nicknameField = createTextField("\u0418\u0433\u0440\u043e\u043a");
         this.widthField = createTextField("10");
         this.heightField = createTextField("20");
         this.helpArea = createHelpArea();
+        this.leaderboardArea = createLeaderboardArea();
         this.fallTimer = new Timer(FALL_DELAY_MS, this::handleTick);
     }
 
@@ -112,8 +127,8 @@ public final class TetrisSwingClient {
             } catch (Exception exception) {
                 JOptionPane.showMessageDialog(
                     null,
-                    "Не удалось подключиться к серверу RMI:\n" + exception.getMessage(),
-                    "Ошибка подключения",
+                    "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c\u0441\u044f \u043a \u0441\u0435\u0440\u0432\u0435\u0440\u0443 RMI:\n" + exception.getMessage(),
+                    "\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f",
                     JOptionPane.ERROR_MESSAGE
                 );
             }
@@ -136,11 +151,16 @@ public final class TetrisSwingClient {
         frame.setVisible(true);
 
         installKeyBindings();
+        sessionId = executeRemoteCall(() -> service.createSession(getNickname()));
         showCard(MENU_CARD);
+        executeRemote(() -> service.updatePlayerNickname(sessionId, getNickname()), false);
     }
 
     private JPanel createMenuPanel() {
         JPanel panel = baseScreenPanel();
+
+        JPanel content = new JPanel(new BorderLayout(24, 0));
+        content.setOpaque(false);
 
         JPanel center = new JPanel();
         center.setOpaque(false);
@@ -151,7 +171,7 @@ public final class TetrisSwingClient {
         title.setForeground(BORDER);
         title.setAlignmentX(JComponent.CENTER_ALIGNMENT);
 
-        JLabel subtitle = new JLabel("by Михальчук Д.А.");
+        JLabel subtitle = new JLabel("by \u041c\u0438\u0445\u0430\u043b\u044c\u0447\u0443\u043a \u0414.\u0410.");
         subtitle.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 16));
         subtitle.setForeground(MUTED_TEXT);
         subtitle.setAlignmentX(JComponent.CENTER_ALIGNMENT);
@@ -161,10 +181,10 @@ public final class TetrisSwingClient {
         deco.setForeground(new Color(70, 120, 80));
         deco.setAlignmentX(JComponent.CENTER_ALIGNMENT);
 
-        JButton startButton = createPrimaryButton("Начать игру");
+        JButton startButton = createPrimaryButton("\u041d\u0430\u0447\u0430\u0442\u044c \u0438\u0433\u0440\u0443");
         startButton.addActionListener(event -> startGame());
 
-        JButton settingsButton = createPrimaryButton("Изменить настройки игры");
+        JButton settingsButton = createPrimaryButton("\u0418\u0437\u043c\u0435\u043d\u0438\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0438\u0433\u0440\u044b");
         settingsButton.addActionListener(event -> showCard(SETTINGS_CARD));
 
         center.add(Box.createVerticalGlue());
@@ -179,35 +199,78 @@ public final class TetrisSwingClient {
         center.add(settingsButton);
         center.add(Box.createVerticalGlue());
 
-        panel.add(center, BorderLayout.CENTER);
+        JPanel wrapper = new JPanel();
+        wrapper.setOpaque(false);
+        wrapper.setLayout(new BoxLayout(wrapper, BoxLayout.Y_AXIS));
+        wrapper.add(Box.createVerticalGlue());
+        wrapper.add(center);
+        wrapper.add(Box.createVerticalGlue());
+
+        content.add(wrapper, BorderLayout.CENTER);
+        content.add(createMenuStatsPanel(), BorderLayout.EAST);
+        panel.add(content, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createMenuStatsPanel() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setPreferredSize(new Dimension(360, 420));
+
+        JPanel playerCard = createCardPanel("\u0418\u0433\u0440\u043e\u043a");
+        playerCard.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        playerCard.setMaximumSize(new Dimension(360, 150));
+
+        JPanel playerStats = new JPanel();
+        playerStats.setOpaque(false);
+        playerStats.setLayout(new BoxLayout(playerStats, BoxLayout.Y_AXIS));
+        playerStats.add(menuPlayerLabel);
+        playerStats.add(Box.createVerticalStrut(8));
+        playerStats.add(menuRecordLabel);
+        playerStats.add(Box.createVerticalStrut(6));
+        playerStats.add(menuGamesLabel);
+        playerCard.add(playerStats, BorderLayout.CENTER);
+
+        JPanel topCard = createCardPanel("\u0422\u043e\u043f-10 \u0438\u0433\u0440\u043e\u043a\u043e\u0432");
+        topCard.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        topCard.setMaximumSize(new Dimension(360, 250));
+        topCard.add(leaderboardArea, BorderLayout.CENTER);
+
+        panel.add(playerCard);
+        panel.add(Box.createVerticalStrut(16));
+        panel.add(topCard);
+        panel.add(Box.createVerticalGlue());
         return panel;
     }
 
     private JPanel createSettingsPanel() {
         JPanel panel = baseScreenPanel();
 
-        JPanel card = createCardPanel("Настройки игры");
-        card.setPreferredSize(new Dimension(640, 340));
-        card.setMaximumSize(new Dimension(640, 340));
+        JPanel card = createCardPanel("\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0438\u0433\u0440\u044b");
+        card.setPreferredSize(new Dimension(640, 400));
+        card.setMaximumSize(new Dimension(640, 400));
 
         JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
 
-        JPanel widthRow = createSettingRow("Ширина поля", widthField);
-        JPanel heightRow = createSettingRow("Высота поля", heightField);
+        JPanel nicknameRow = createSettingRow("\u041d\u0438\u043a \u0438\u0433\u0440\u043e\u043a\u0430", nicknameField);
+        JPanel widthRow = createSettingRow("\u0428\u0438\u0440\u0438\u043d\u0430 \u043f\u043e\u043b\u044f", widthField);
+        JPanel heightRow = createSettingRow("\u0412\u044b\u0441\u043e\u0442\u0430 \u043f\u043e\u043b\u044f", heightField);
 
-        saveSettingsButton = createPrimaryButton("Сохранить и в меню");
+        saveSettingsButton = createPrimaryButton("\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0438 \u0432 \u043c\u0435\u043d\u044e");
         saveSettingsButton.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         saveSettingsButton.setMaximumSize(saveSettingsButton.getPreferredSize());
         saveSettingsButton.addActionListener(event -> {
             if (validateSettingsInputs()) {
+                executeRemote(() -> service.updatePlayerNickname(sessionId, getNickname()), false);
                 showCard(MENU_CARD);
             }
         });
 
         JTextArea note = new JTextArea(
-            "Меняется только размер поля. После сохранения вернитесь в меню и начните новую игру."
+            "\u0417\u0434\u0435\u0441\u044c \u043c\u043e\u0436\u043d\u043e \u0437\u0430\u0434\u0430\u0442\u044c \u043d\u0438\u043a \u0438 \u0440\u0430\u0437\u043c\u0435\u0440 \u043f\u043e\u043b\u044f. \u041f\u043e\u0441\u043b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f \u0432\u0435\u0440\u043d\u0438\u0442\u0435\u0441\u044c \u0432 \u043c\u0435\u043d\u044e \u0438 \u043d\u0430\u0447\u043d\u0438\u0442\u0435 \u043d\u043e\u0432\u0443\u044e \u0438\u0433\u0440\u0443."
         );
         note.setEditable(false);
         note.setLineWrap(true);
@@ -226,6 +289,8 @@ public final class TetrisSwingClient {
         settingsValidationLabel.setForeground(new Color(255, 120, 120));
         settingsValidationLabel.setText(" ");
 
+        content.add(nicknameRow);
+        content.add(Box.createVerticalStrut(14));
         content.add(widthRow);
         content.add(Box.createVerticalStrut(14));
         content.add(heightRow);
@@ -296,15 +361,14 @@ public final class TetrisSwingClient {
     }
 
     private JPanel createStatsPanel() {
-        JPanel panel = createCardPanel("Состояние");
+        JPanel panel = createCardPanel("\u0421\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435");
+        panel.setPreferredSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 150));
+        panel.setMinimumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 150));
+        panel.setMaximumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 150));
         JPanel stats = new JPanel();
         stats.setOpaque(false);
         stats.setLayout(new BoxLayout(stats, BoxLayout.Y_AXIS));
         stats.add(scoreLabel);
-        stats.add(Box.createVerticalStrut(6));
-        stats.add(recordLabel);
-        stats.add(Box.createVerticalStrut(6));
-        stats.add(gamesLabel);
         stats.add(Box.createVerticalStrut(6));
         stats.add(placedLabel);
         stats.add(Box.createVerticalStrut(6));
@@ -316,22 +380,28 @@ public final class TetrisSwingClient {
     }
 
     private JPanel createHelpPanel() {
-        JPanel panel = createCardPanel("Клавиши");
+        JPanel panel = createCardPanel("\u041a\u043b\u0430\u0432\u0438\u0448\u0438");
+        panel.setPreferredSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 165));
+        panel.setMinimumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 165));
+        panel.setMaximumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 165));
         helpArea.setText("""
-            Left / Right  - движение
-            Up            - поворот
-            Down          - вниз
-            Space         - сбросить вниз
-            Enter         - начать игру из меню
-            Esc           - главное меню
+            Left / Right  - \u0434\u0432\u0438\u0436\u0435\u043d\u0438\u0435
+            Up            - \u043f\u043e\u0432\u043e\u0440\u043e\u0442
+            Down          - \u0432\u043d\u0438\u0437
+            Space         - \u0441\u0431\u0440\u043e\u0441\u0438\u0442\u044c \u0432\u043d\u0438\u0437
+            Enter         - \u043d\u0430\u0447\u0430\u0442\u044c \u0438\u0433\u0440\u0443 \u0438\u0437 \u043c\u0435\u043d\u044e
+            Esc           - \u0433\u043b\u0430\u0432\u043d\u043e\u0435 \u043c\u0435\u043d\u044e
             """);
         panel.add(helpArea, BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createMenuButtonPanel() {
-        JPanel panel = createCardPanel("Навигация");
-        JButton menuButton = createPrimaryButton("Главное меню");
+        JPanel panel = createCardPanel("\u041d\u0430\u0432\u0438\u0433\u0430\u0446\u0438\u044f");
+        panel.setPreferredSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 108));
+        panel.setMinimumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 108));
+        panel.setMaximumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 108));
+        JButton menuButton = createPrimaryButton("\u0413\u043b\u0430\u0432\u043d\u043e\u0435 \u043c\u0435\u043d\u044e");
         menuButton.addActionListener(event -> {
             stopTimer();
             showCard(MENU_CARD);
@@ -409,6 +479,31 @@ public final class TetrisSwingClient {
         return area;
     }
 
+    private JTextArea createLeaderboardArea() {
+        JTextArea area = new JTextArea();
+        area.setEditable(false);
+        area.setOpaque(false);
+        area.setLineWrap(false);
+        area.setWrapStyleWord(false);
+        area.setForeground(TEXT);
+        area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        area.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(28, 86, 42), 1),
+            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        area.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        area.setMaximumSize(new Dimension(330, 220));
+        return area;
+    }
+
+    private JLabel createSectionLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setForeground(BORDER);
+        label.setFont(new Font(Font.MONOSPACED, Font.BOLD, 14));
+        label.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        return label;
+    }
+
     private void installSettingsValidation() {
         DocumentListener listener = new DocumentListener() {
             @Override
@@ -427,17 +522,31 @@ public final class TetrisSwingClient {
             }
         };
 
+        nicknameField.getDocument().addDocumentListener(listener);
         widthField.getDocument().addDocumentListener(listener);
         heightField.getDocument().addDocumentListener(listener);
     }
 
     private boolean validateSettingsInputs() {
+        String nicknameText = getNickname();
         String widthText = widthField.getText().trim();
         String heightText = heightField.getText().trim();
         settingsValidationLabel.setForeground(new Color(255, 120, 120));
 
+        if (nicknameText.isEmpty()) {
+            settingsValidationLabel.setText("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0438\u043a \u0438\u0433\u0440\u043e\u043a\u0430.");
+            saveSettingsButton.setEnabled(false);
+            return false;
+        }
+
+        if (nicknameText.length() > MAX_NICKNAME_LENGTH) {
+            settingsValidationLabel.setText("\u041d\u0438\u043a \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0434\u043e " + MAX_NICKNAME_LENGTH + " \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432.");
+            saveSettingsButton.setEnabled(false);
+            return false;
+        }
+
         if (widthText.isEmpty() || heightText.isEmpty()) {
-            settingsValidationLabel.setText("Введите ширину и высоту поля.");
+            settingsValidationLabel.setText("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0438\u043a, \u0448\u0438\u0440\u0438\u043d\u0443 \u0438 \u0432\u044b\u0441\u043e\u0442\u0443 \u043f\u043e\u043b\u044f.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
@@ -448,24 +557,24 @@ public final class TetrisSwingClient {
             width = Integer.parseInt(widthText);
             height = Integer.parseInt(heightText);
         } catch (NumberFormatException exception) {
-            settingsValidationLabel.setText("Допустимы только целые числа.");
+            settingsValidationLabel.setText("\u0414\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b \u0442\u043e\u043b\u044c\u043a\u043e \u0446\u0435\u043b\u044b\u0435 \u0447\u0438\u0441\u043b\u0430.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
         if (width < MIN_WIDTH || height < MIN_HEIGHT) {
-            settingsValidationLabel.setText("Минимум: ширина 4, высота 6.");
+            settingsValidationLabel.setText("\u041c\u0438\u043d\u0438\u043c\u0443\u043c: \u0448\u0438\u0440\u0438\u043d\u0430 4, \u0432\u044b\u0441\u043e\u0442\u0430 6.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
         if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-            settingsValidationLabel.setText("Максимум: ширина 25, высота 25.");
+            settingsValidationLabel.setText("\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: \u0448\u0438\u0440\u0438\u043d\u0430 25, \u0432\u044b\u0441\u043e\u0442\u0430 25.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
-        settingsValidationLabel.setText("Значения корректны.");
+        settingsValidationLabel.setText("\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b.");
         settingsValidationLabel.setForeground(new Color(110, 220, 140));
         saveSettingsButton.setEnabled(true);
         return true;
@@ -476,15 +585,19 @@ public final class TetrisSwingClient {
         label.setVerticalAlignment(SwingConstants.TOP);
         label.setForeground(TEXT);
         label.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 14));
+        label.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        label.setPreferredSize(new Dimension(GAME_SIDE_PANEL_WIDTH - 32, 22));
+        label.setMinimumSize(new Dimension(GAME_SIDE_PANEL_WIDTH - 32, 22));
+        label.setMaximumSize(new Dimension(GAME_SIDE_PANEL_WIDTH - 32, 22));
         return label;
     }
 
     private void installKeyBindings() {
-        bindKey("LEFT", "moveLeft", event -> executeRemote(service::moveLeft, false));
-        bindKey("RIGHT", "moveRight", event -> executeRemote(service::moveRight, false));
-        bindKey("UP", "rotate", event -> executeRemote(service::rotate, false));
-        bindKey("DOWN", "moveDown", event -> executeRemote(service::moveDown, false));
-        bindKey("SPACE", "drop", event -> executeRemote(service::dropFigure, false));
+        bindKey("LEFT", "moveLeft", event -> executeRemote(() -> service.moveLeft(sessionId), false));
+        bindKey("RIGHT", "moveRight", event -> executeRemote(() -> service.moveRight(sessionId), false));
+        bindKey("UP", "rotate", event -> executeRemote(() -> service.rotate(sessionId), false));
+        bindKey("DOWN", "moveDown", event -> executeRemote(() -> service.moveDown(sessionId), false));
+        bindKey("SPACE", "drop", event -> executeRemote(() -> service.dropFigure(sessionId), false));
         bindKey("ENTER", "startFromMenu", event -> {
             if (isCurrentCard(MENU_CARD)) {
                 startGame();
@@ -516,8 +629,8 @@ public final class TetrisSwingClient {
         } catch (NumberFormatException exception) {
             JOptionPane.showMessageDialog(
                 frame,
-                "Размеры поля должны быть целыми числами.",
-                "Некорректный ввод",
+                "\u0420\u0430\u0437\u043c\u0435\u0440\u044b \u043f\u043e\u043b\u044f \u0434\u043e\u043b\u0436\u043d\u044b \u0431\u044b\u0442\u044c \u0446\u0435\u043b\u044b\u043c\u0438 \u0447\u0438\u0441\u043b\u0430\u043c\u0438.",
+                "\u041d\u0435\u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b\u0439 \u0432\u0432\u043e\u0434",
                 JOptionPane.WARNING_MESSAGE
             );
             return;
@@ -530,7 +643,10 @@ public final class TetrisSwingClient {
 
         int fieldWidth = width;
         int fieldHeight = height;
-        executeRemote(() -> service.startNewGame(fieldWidth, fieldHeight), true);
+        executeRemote(() -> {
+            service.updatePlayerNickname(sessionId, getNickname());
+            return service.startNewGame(sessionId, fieldWidth, fieldHeight);
+        }, true);
         if (snapshot != null) {
             showCard(GAME_CARD);
             restartTimer();
@@ -542,7 +658,7 @@ public final class TetrisSwingClient {
             stopTimer();
             return;
         }
-        executeRemote(service::tick, false);
+        executeRemote(() -> service.tick(sessionId), false);
     }
 
     private void executeRemote(RemoteAction action, boolean keepTimerRunning) {
@@ -558,10 +674,25 @@ public final class TetrisSwingClient {
             stopTimer();
             JOptionPane.showMessageDialog(
                 frame,
-                "Ошибка RMI:\n" + exception.getMessage(),
-                "Ошибка",
+                "\u041e\u0448\u0438\u0431\u043a\u0430 RMI:\n" + exception.getMessage(),
+                "\u041e\u0448\u0438\u0431\u043a\u0430",
                 JOptionPane.ERROR_MESSAGE
             );
+        }
+    }
+
+    private <T> T executeRemoteCall(RemoteValueAction<T> action) {
+        try {
+            return action.execute();
+        } catch (Exception exception) {
+            stopTimer();
+            JOptionPane.showMessageDialog(
+                frame,
+                "\u041e\u0448\u0438\u0431\u043a\u0430 RMI:\n" + exception.getMessage(),
+                "\u041e\u0448\u0438\u0431\u043a\u0430",
+                JOptionPane.ERROR_MESSAGE
+            );
+            throw new IllegalStateException("Remote call failed", exception);
         }
     }
 
@@ -571,15 +702,47 @@ public final class TetrisSwingClient {
         }
 
         boardPanel.setSnapshot(snapshot);
-        scoreLabel.setText("Очки: " + snapshot.score() + " | Занято: " + snapshot.occupiedCells());
-        recordLabel.setText("Рекорд: " + snapshot.bestScore());
-        gamesLabel.setText("Игр сыграно: " + snapshot.gamesPlayed());
-        placedLabel.setText("Размещено фигур: " + snapshot.placedFigures());
-        holesLabel.setText("Пустоты: " + snapshot.holes());
-        gameOverLabel.setText(snapshot.gameOver() ? "КОНЕЦ ИГРЫ" : " ");
+        if (!snapshot.playerNickname().equals(getNickname())) {
+            nicknameField.setText(snapshot.playerNickname());
+        }
+        scoreLabel.setText("\u041e\u0447\u043a\u0438: " + snapshot.score() + " | \u0417\u0430\u043d\u044f\u0442\u043e: " + snapshot.occupiedCells());
+        menuPlayerLabel.setText("\u0418\u0433\u0440\u043e\u043a: " + snapshot.playerNickname());
+        menuRecordLabel.setText("\u0420\u0435\u043a\u043e\u0440\u0434: " + snapshot.bestScore());
+        menuGamesLabel.setText("\u0421\u044b\u0433\u0440\u0430\u043d\u043e \u043f\u0430\u0440\u0442\u0438\u0439: " + snapshot.gamesPlayed());
+        menuTopLabel.setText(" ");
+        leaderboardArea.setText(formatTopPlayers());
+        placedLabel.setText("\u0420\u0430\u0437\u043c\u0435\u0449\u0435\u043d\u043e \u0444\u0438\u0433\u0443\u0440: " + snapshot.placedFigures());
+        holesLabel.setText("\u041f\u0443\u0441\u0442\u043e\u0442\u044b: " + snapshot.holes());
+        gameOverLabel.setText(snapshot.gameOver() ? "\u041a\u041e\u041d\u0415\u0426 \u0418\u0413\u0420\u042b" : " ");
 
         frame.pack();
         frame.repaint();
+    }
+
+    private String formatTopPlayers() {
+        if (snapshot == null || snapshot.topPlayers().isEmpty()) {
+            return "\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0440\u0435\u0437\u0443\u043b\u044c\u0442\u0430\u0442\u043e\u0432.";
+        }
+
+        StringBuilder builder = new StringBuilder();
+        for (int index = 0; index < snapshot.topPlayers().size(); index++) {
+            if (index > 0) {
+                builder.append('\n');
+            }
+
+            var player = snapshot.topPlayers().get(index);
+            builder
+                .append(index + 1)
+                .append(". ")
+                .append(player.nickname())
+                .append(" - ")
+                .append(player.bestScore())
+                .append(" - ")
+                .append(player.fieldWidth())
+                .append("x")
+                .append(player.fieldHeight());
+        }
+        return builder.toString();
     }
 
     private void restartTimer() {
@@ -600,9 +763,18 @@ public final class TetrisSwingClient {
         return cardName.equals(value);
     }
 
+    private String getNickname() {
+        return nicknameField.getText().trim();
+    }
+
     @FunctionalInterface
     private interface RemoteAction {
         GameSnapshot execute() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface RemoteValueAction<T> {
+        T execute() throws Exception;
     }
 
     private static final class BoardPanel extends JPanel {
@@ -669,3 +841,4 @@ public final class TetrisSwingClient {
         }
     }
 }
+
