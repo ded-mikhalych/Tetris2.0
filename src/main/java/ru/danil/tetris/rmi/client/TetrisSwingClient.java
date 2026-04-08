@@ -76,7 +76,7 @@ public final class TetrisSwingClient {
     private final JLabel placedLabel;
     private final JLabel holesLabel;
     private final JLabel gameOverLabel;
-    private final JLabel settingsValidationLabel;
+    private final JTextArea settingsValidationArea;
     private final JTextField nicknameField;
     private final JTextField widthField;
     private final JTextField heightField;
@@ -104,7 +104,7 @@ public final class TetrisSwingClient {
         this.placedLabel = createInfoLabel();
         this.holesLabel = createInfoLabel();
         this.gameOverLabel = createInfoLabel();
-        this.settingsValidationLabel = createInfoLabel();
+        this.settingsValidationArea = createValidationArea();
         this.nicknameField = createTextField("\u0418\u0433\u0440\u043e\u043a");
         this.widthField = createTextField("10");
         this.heightField = createTextField("20");
@@ -248,8 +248,8 @@ public final class TetrisSwingClient {
         JPanel panel = baseScreenPanel();
 
         JPanel card = createCardPanel("\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0438\u0433\u0440\u044b");
-        card.setPreferredSize(new Dimension(640, 400));
-        card.setMaximumSize(new Dimension(640, 400));
+        card.setPreferredSize(new Dimension(640, 440));
+        card.setMaximumSize(new Dimension(640, 440));
 
         JPanel content = new JPanel();
         content.setOpaque(false);
@@ -285,9 +285,9 @@ public final class TetrisSwingClient {
         note.setAlignmentX(JComponent.LEFT_ALIGNMENT);
         note.setMaximumSize(new Dimension(560, 76));
 
-        settingsValidationLabel.setAlignmentX(JComponent.LEFT_ALIGNMENT);
-        settingsValidationLabel.setForeground(new Color(255, 120, 120));
-        settingsValidationLabel.setText(" ");
+        settingsValidationArea.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        settingsValidationArea.setForeground(new Color(255, 120, 120));
+        settingsValidationArea.setText(" ");
 
         content.add(nicknameRow);
         content.add(Box.createVerticalStrut(14));
@@ -297,8 +297,8 @@ public final class TetrisSwingClient {
         content.add(Box.createVerticalStrut(22));
         content.add(saveSettingsButton);
         content.add(Box.createVerticalStrut(10));
-        content.add(settingsValidationLabel);
-        content.add(Box.createVerticalStrut(22));
+        content.add(settingsValidationArea);
+        content.add(Box.createVerticalStrut(18));
         content.add(note);
 
         card.add(content, BorderLayout.CENTER);
@@ -362,9 +362,9 @@ public final class TetrisSwingClient {
 
     private JPanel createStatsPanel() {
         JPanel panel = createCardPanel("\u0421\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435");
-        panel.setPreferredSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 150));
-        panel.setMinimumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 150));
-        panel.setMaximumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 150));
+        panel.setPreferredSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 178));
+        panel.setMinimumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 178));
+        panel.setMaximumSize(new Dimension(GAME_SIDE_PANEL_WIDTH, 178));
         JPanel stats = new JPanel();
         stats.setOpaque(false);
         stats.setLayout(new BoxLayout(stats, BoxLayout.Y_AXIS));
@@ -496,6 +496,19 @@ public final class TetrisSwingClient {
         return area;
     }
 
+    private JTextArea createValidationArea() {
+        JTextArea area = new JTextArea(" ");
+        area.setEditable(false);
+        area.setOpaque(false);
+        area.setLineWrap(true);
+        area.setWrapStyleWord(true);
+        area.setForeground(new Color(255, 120, 120));
+        area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+        area.setAlignmentX(JComponent.LEFT_ALIGNMENT);
+        area.setMaximumSize(new Dimension(560, 54));
+        return area;
+    }
+
     private JLabel createSectionLabel(String text) {
         JLabel label = new JLabel(text);
         label.setForeground(BORDER);
@@ -531,22 +544,22 @@ public final class TetrisSwingClient {
         String nicknameText = getNickname();
         String widthText = widthField.getText().trim();
         String heightText = heightField.getText().trim();
-        settingsValidationLabel.setForeground(new Color(255, 120, 120));
+        settingsValidationArea.setForeground(new Color(255, 120, 120));
 
         if (nicknameText.isEmpty()) {
-            settingsValidationLabel.setText("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0438\u043a \u0438\u0433\u0440\u043e\u043a\u0430.");
+            settingsValidationArea.setText("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0438\u043a \u0438\u0433\u0440\u043e\u043a\u0430.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
         if (nicknameText.length() > MAX_NICKNAME_LENGTH) {
-            settingsValidationLabel.setText("\u041d\u0438\u043a \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0434\u043e " + MAX_NICKNAME_LENGTH + " \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432.");
+            settingsValidationArea.setText("\u041d\u0438\u043a \u0434\u043e\u043b\u0436\u0435\u043d \u0431\u044b\u0442\u044c \u0434\u043e " + MAX_NICKNAME_LENGTH + " \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
         if (widthText.isEmpty() || heightText.isEmpty()) {
-            settingsValidationLabel.setText("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0438\u043a, \u0448\u0438\u0440\u0438\u043d\u0443 \u0438 \u0432\u044b\u0441\u043e\u0442\u0443 \u043f\u043e\u043b\u044f.");
+            settingsValidationArea.setText("\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u0438\u043a, \u0448\u0438\u0440\u0438\u043d\u0443 \u0438 \u0432\u044b\u0441\u043e\u0442\u0443 \u043f\u043e\u043b\u044f.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
@@ -557,25 +570,25 @@ public final class TetrisSwingClient {
             width = Integer.parseInt(widthText);
             height = Integer.parseInt(heightText);
         } catch (NumberFormatException exception) {
-            settingsValidationLabel.setText("\u0414\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b \u0442\u043e\u043b\u044c\u043a\u043e \u0446\u0435\u043b\u044b\u0435 \u0447\u0438\u0441\u043b\u0430.");
+            settingsValidationArea.setText("\u0414\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u044b \u0442\u043e\u043b\u044c\u043a\u043e \u0446\u0435\u043b\u044b\u0435 \u0447\u0438\u0441\u043b\u0430.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
         if (width < MIN_WIDTH || height < MIN_HEIGHT) {
-            settingsValidationLabel.setText("\u041c\u0438\u043d\u0438\u043c\u0443\u043c: \u0448\u0438\u0440\u0438\u043d\u0430 4, \u0432\u044b\u0441\u043e\u0442\u0430 6.");
+            settingsValidationArea.setText("\u041c\u0438\u043d\u0438\u043c\u0443\u043c: \u0448\u0438\u0440\u0438\u043d\u0430 4, \u0432\u044b\u0441\u043e\u0442\u0430 6.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
         if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-            settingsValidationLabel.setText("\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: \u0448\u0438\u0440\u0438\u043d\u0430 25, \u0432\u044b\u0441\u043e\u0442\u0430 25.");
+            settingsValidationArea.setText("\u041c\u0430\u043a\u0441\u0438\u043c\u0443\u043c: \u0448\u0438\u0440\u0438\u043d\u0430 25, \u0432\u044b\u0441\u043e\u0442\u0430 25.");
             saveSettingsButton.setEnabled(false);
             return false;
         }
 
-        settingsValidationLabel.setText("\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b.");
-        settingsValidationLabel.setForeground(new Color(110, 220, 140));
+        settingsValidationArea.setText("\u0417\u043d\u0430\u0447\u0435\u043d\u0438\u044f \u043a\u043e\u0440\u0440\u0435\u043a\u0442\u043d\u044b.");
+        settingsValidationArea.setForeground(new Color(110, 220, 140));
         saveSettingsButton.setEnabled(true);
         return true;
     }
